@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duel des capitales</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e1726">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Capitales">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0e1726; --panel:#17233a; --line:#2b3b59; --text:#eef2f8; --mute:#94a2bb;
+  --amber:#f7c948; --ok:#5fd4a0; --ko:#ff7a6b; --board:#070b12;
+  --display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:16px;line-height:1.45;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:calc(14px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+.mark{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+.route{font-family:var(--display);font-weight:700;color:var(--amber);letter-spacing:.12em;font-size:15px;white-space:nowrap}
+main{flex:1;overflow-y:auto;padding:16px 16px 24px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+nav{display:flex;border-top:1px solid var(--line);background:var(--panel);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;padding:13px 4px 14px;font-weight:600;color:var(--mute);border-top:3px solid transparent}
+nav button[aria-current="page"]{color:var(--text);border-top-color:var(--amber)}
+.dot{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--amber);color:#1b1400;font-size:12px;font-weight:700;line-height:18px}
+h2{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.group{display:flex;flex-direction:column}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#1b1400;font-weight:700}
+.field{width:100%;background:var(--board);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.btn{display:block;width:100%;border-radius:10px;padding:14px 16px;font-weight:700;border:1px solid var(--line);background:var(--panel);text-align:center}
+.btn.go{background:var(--amber);border-color:var(--amber);color:#1b1400}
+.btn.small{width:auto;padding:9px 14px;font-size:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.btn{flex:1 1 160px}
+.note{color:var(--mute);font-size:14px;margin:0}
+.err{color:var(--ko);font-size:14px;margin:0}
+.meter{height:8px;border-radius:4px;background:var(--panel);overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:var(--ok)}
+.board{position:relative;background:var(--board);border:1px solid var(--line);border-radius:12px;padding:16px 16px 20px;perspective:600px}
+.board::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.07)}
+.board-k{font-family:var(--display);font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);font-size:13px}
+.board-v{font-family:var(--display);font-weight:800;text-transform:uppercase;color:var(--amber);font-size:clamp(34px,10.5vw,56px);line-height:1.02;letter-spacing:.02em;overflow-wrap:anywhere;margin-top:6px}
+.flip .board-v{animation:flap .28s ease-out}
+@keyframes flap{from{transform:rotateX(-80deg);opacity:.2}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.flip .board-v{animation:none}}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;font-variant-numeric:tabular-nums;color:var(--mute);font-weight:600}
+.hud b{color:var(--text)}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px 16px;font-weight:600;font-size:17px}
+.opt.right{border-color:var(--ok);background:rgba(95,212,160,.16)}
+.opt.wrong{border-color:var(--ko);background:rgba(255,122,107,.14)}
+.fb{min-height:26px;font-weight:700}
+.fb.ok{color:var(--ok)} .fb.ko{color:var(--ko)}
+.big{font-family:var(--display);font-weight:800;font-size:clamp(40px,13vw,64px);text-transform:uppercase;overflow-wrap:anywhere;line-height:1;color:var(--amber);font-variant-numeric:tabular-nums}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;border:1px solid var(--line)}
+.pill.todo{background:var(--amber);border-color:var(--amber);color:#1b1400}
+.pill.win{border-color:var(--ok);color:var(--ok)} .pill.lose{border-color:var(--ko);color:var(--ko)}
+.vs{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-variant-numeric:tabular-nums}
+.vs span:nth-child(even){text-align:right;font-weight:700}
+.tally{display:flex;justify-content:center;align-items:center;gap:14px;font-family:var(--display);font-weight:800;font-size:44px;font-variant-numeric:tabular-nums}
+.av{border-radius:50%;object-fit:cover;border:2px solid var(--amber);background:var(--panel);flex:none}
+.me{display:flex;align-items:center;gap:12px}
+.me b{font-size:20px;display:block;line-height:1.2}
+.btn.who{display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left}
+.who-n{font-family:var(--display);font-weight:800;font-size:34px;text-transform:uppercase;letter-spacing:.03em;line-height:1;display:block}
+.who-c{color:var(--amber);font-family:var(--display);font-weight:700;letter-spacing:.1em}
+.list{display:flex;flex-direction:column}
+.cty{display:grid;grid-template-columns:28px 1fr auto 10px;gap:10px;align-items:center;padding:10px 0;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;width:100%}
+.cty .cap{color:var(--amber);font-weight:600;text-align:right}
+.cty .lv{width:10px;height:10px;border-radius:50%;border:1px solid var(--line)}
+.cty .lv.l1{background:var(--amber);border-color:var(--amber)} .cty .lv.l3{background:var(--ok);border-color:var(--ok)}
+.miss{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+.miss b{color:var(--amber);text-align:right}
+</style>
+</head>
+<body>
+<header><div class="mark">Duel des capitales</div><div class="route">HAN ⇄ RUN</div></header>
+<main><div class="wrap" id="app"><p class="note">Chargement…</p></div></main>
+<nav id="nav" hidden></nav>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uRzyx0klhLVmX1kN08x3ZcTNO-Kgvuo",
+  authDomain: "gametime-f3082.firebaseapp.com",
+  projectId: "gametime-f3082",
+  storageBucket: "gametime-f3082.firebasestorage.app",
+  messagingSenderId: "928420205354",
+  appId: "1:928420205354:web:68ae74018a30c73d75c453"
+};
+
+const RAW={
+AF:"DZ|Algérie|Alger;AO|Angola|Luanda;BJ|Bénin|Porto-Novo;BW|Botswana|Gaborone;BF|Burkina Faso|Ouagadougou;BI|Burundi|Gitega;CM|Cameroun|Yaoundé;CV|Cap-Vert|Praia;CF|République centrafricaine|Bangui;KM|Comores|Moroni;CG|Congo|Brazzaville;CD|RD Congo|Kinshasa;CI|Côte d'Ivoire|Yamoussoukro;DJ|Djibouti|Djibouti;EG|Égypte|Le Caire;ER|Érythrée|Asmara;SZ|Eswatini|Mbabane;ET|Éthiopie|Addis-Abeba;GA|Gabon|Libreville;GM|Gambie|Banjul;GH|Ghana|Accra;GN|Guinée|Conakry;GW|Guinée-Bissau|Bissau;GQ|Guinée équatoriale|Malabo;KE|Kenya|Nairobi;LS|Lesotho|Maseru;LR|Liberia|Monrovia;LY|Libye|Tripoli;MG|Madagascar|Antananarivo;MW|Malawi|Lilongwe;ML|Mali|Bamako;MA|Maroc|Rabat;MU|Maurice|Port-Louis;MR|Mauritanie|Nouakchott;MZ|Mozambique|Maputo;NA|Namibie|Windhoek;NE|Niger|Niamey;NG|Nigeria|Abuja;UG|Ouganda|Kampala;RW|Rwanda|Kigali;ST|Sao Tomé-et-Principe|São Tomé;SN|Sénégal|Dakar;SC|Seychelles|Victoria;SL|Sierra Leone|Freetown;SO|Somalie|Mogadiscio;SD|Soudan|Khartoum;SS|Soudan du Sud|Djouba;TZ|Tanzanie|Dodoma;TD|Tchad|N'Djamena;TG|Togo|Lomé;TN|Tunisie|Tunis;ZM|Zambie|Lusaka;ZW|Zimbabwe|Harare;ZA|Afrique du Sud|Pretoria",
+AM:"AG|Antigua-et-Barbuda|Saint John's;AR|Argentine|Buenos Aires;BS|Bahamas|Nassau;BB|Barbade|Bridgetown;BZ|Belize|Belmopan;BO|Bolivie|Sucre;BR|Brésil|Brasilia;CA|Canada|Ottawa;CL|Chili|Santiago;CO|Colombie|Bogota;CR|Costa Rica|San José;CU|Cuba|La Havane;DM|Dominique|Roseau;DO|République dominicaine|Saint-Domingue;EC|Équateur|Quito;US|États-Unis|Washington;GD|Grenade|Saint-Georges;GT|Guatemala|Guatemala;GY|Guyana|Georgetown;HT|Haïti|Port-au-Prince;HN|Honduras|Tegucigalpa;JM|Jamaïque|Kingston;MX|Mexique|Mexico;NI|Nicaragua|Managua;PA|Panama|Panama;PY|Paraguay|Asuncion;PE|Pérou|Lima;KN|Saint-Christophe-et-Niévès|Basseterre;LC|Sainte-Lucie|Castries;VC|Saint-Vincent-et-les-Grenadines|Kingstown;SV|Salvador|San Salvador;SR|Suriname|Paramaribo;TT|Trinité-et-Tobago|Port-d'Espagne;UY|Uruguay|Montevideo;VE|Venezuela|Caracas",
+AS:"AF|Afghanistan|Kaboul;SA|Arabie saoudite|Riyad;AM|Arménie|Erevan;AZ|Azerbaïdjan|Bakou;BH|Bahreïn|Manama;BD|Bangladesh|Dacca;BT|Bhoutan|Thimphou;MM|Birmanie|Naypyidaw;BN|Brunei|Bandar Seri Begawan;KH|Cambodge|Phnom Penh;CN|Chine|Pékin;KP|Corée du Nord|Pyongyang;KR|Corée du Sud|Séoul;AE|Émirats arabes unis|Abou Dabi;GE|Géorgie|Tbilissi;IN|Inde|New Delhi;ID|Indonésie|Jakarta;IQ|Irak|Bagdad;IR|Iran|Téhéran;IL|Israël|Jérusalem;JP|Japon|Tokyo;JO|Jordanie|Amman;KZ|Kazakhstan|Astana;KG|Kirghizistan|Bichkek;KW|Koweït|Koweït;LA|Laos|Vientiane;LB|Liban|Beyrouth;MY|Malaisie|Kuala Lumpur;MV|Maldives|Malé;MN|Mongolie|Oulan-Bator;NP|Népal|Katmandou;OM|Oman|Mascate;UZ|Ouzbékistan|Tachkent;PK|Pakistan|Islamabad;PS|Palestine|Ramallah;PH|Philippines|Manille;QA|Qatar|Doha;SG|Singapour|Singapour;LK|Sri Lanka|Sri Jayawardenepura Kotte;SY|Syrie|Damas;TJ|Tadjikistan|Douchanbé;TW|Taïwan|Taipei;TH|Thaïlande|Bangkok;TL|Timor oriental|Dili;TR|Turquie|Ankara;TM|Turkménistan|Achgabat;VN|Viêt Nam|Hanoï;YE|Yémen|Sanaa",
+EU:"AL|Albanie|Tirana;DE|Allemagne|Berlin;AD|Andorre|Andorre-la-Vieille;AT|Autriche|Vienne;BE|Belgique|Bruxelles;BY|Biélorussie|Minsk;BA|Bosnie-Herzégovine|Sarajevo;BG|Bulgarie|Sofia;CY|Chypre|Nicosie;HR|Croatie|Zagreb;DK|Danemark|Copenhague;ES|Espagne|Madrid;EE|Estonie|Tallinn;FI|Finlande|Helsinki;FR|France|Paris;GR|Grèce|Athènes;HU|Hongrie|Budapest;IE|Irlande|Dublin;IS|Islande|Reykjavik;IT|Italie|Rome;XK|Kosovo|Pristina;LV|Lettonie|Riga;LI|Liechtenstein|Vaduz;LT|Lituanie|Vilnius;LU|Luxembourg|Luxembourg;MK|Macédoine du Nord|Skopje;MT|Malte|La Valette;MD|Moldavie|Chisinau;MC|Monaco|Monaco;ME|Monténégro|Podgorica;NO|Norvège|Oslo;NL|Pays-Bas|Amsterdam;PL|Pologne|Varsovie;PT|Portugal|Lisbonne;CZ|Tchéquie|Prague;RO|Roumanie|Bucarest;GB|Royaume-Uni|Londres;RU|Russie|Moscou;SM|Saint-Marin|Saint-Marin;RS|Serbie|Belgrade;SK|Slovaquie|Bratislava;SI|Slovénie|Ljubljana;SE|Suède|Stockholm;CH|Suisse|Berne;UA|Ukraine|Kiev;VA|Vatican|Cité du Vatican",
+OC:"AU|Australie|Canberra;FJ|Fidji|Suva;KI|Kiribati|Tarawa-Sud;MH|Îles Marshall|Majuro;FM|Micronésie|Palikir;NR|Nauru|Yaren;NZ|Nouvelle-Zélande|Wellington;PW|Palaos|Ngerulmud;PG|Papouasie-Nouvelle-Guinée|Port Moresby;SB|Îles Salomon|Honiara;WS|Samoa|Apia;TO|Tonga|Nuku'alofa;TV|Tuvalu|Funafuti;VU|Vanuatu|Port-Vila"};
+const ALT={US:["Washington DC"],CN:["Beijing"],AE:["Abu Dhabi","Abou Dhabi"],UA:["Kyiv"],LK:["Kotte","Colombo"],BO:["La Paz"],VA:["Vatican"],IL:["Tel-Aviv"],PS:["Jérusalem-Est"],GQ:["Ciudad de la Paz"],KI:["Tarawa"],IN:["Delhi"],MM:["Nay Pyi Taw"],ZA:["Le Cap","Bloemfontein"],MD:["Kichinev"],BD:["Dhaka"],KZ:["Nour-Soultan"],CI:["Abidjan"]};
+const SUB={"Afrique du Nord":"DZ EG LY MA SD TN","Afrique de l'Ouest":"BJ BF CV CI GM GH GN GW LR ML MR NE NG SN SL TG","Afrique centrale":"AO CM CF TD CG CD GQ GA ST","Afrique de l'Est":"BI KM DJ ER ET KE MG MW MU MZ RW SC SO SS TZ UG ZM ZW","Afrique australe":"BW SZ LS NA ZA","Amérique du Nord":"CA US MX","Amérique centrale":"BZ CR SV GT HN NI PA","Caraïbes":"AG BS BB CU DM DO GD HT JM KN LC VC TT","Amérique du Sud":"AR BO BR CL CO EC GY PY PE SR UY VE","Moyen-Orient et Caucase":"SA AM AZ BH AE GE IQ IR IL JO KW LB OM PS QA SY TR YE","Asie centrale":"KZ KG UZ TJ TM","Asie du Sud":"AF BD BT IN MV NP PK LK","Asie de l'Est":"CN KP KR JP MN TW","Asie du Sud-Est":"MM BN KH ID LA MY PH SG TH TL VN","Europe de l'Ouest":"DE AT BE FR LI LU MC NL CH","Europe du Nord":"DK EE FI IE IS LV LT NO GB SE","Europe du Sud":"AL AD BA CY HR ES GR IT XK MK MT ME PT SM RS SI VA","Europe de l'Est":"BY BG HU MD PL CZ RO RU SK UA","Australie et Nouvelle-Zélande":"AU NZ","Mélanésie":"FJ PG SB VU","Micronésie":"KI MH FM NR PW","Polynésie":"WS TO TV"};
+const SORTS={cont:"Continents",sub:"Régions",az:"Pays A–Z",cap:"Capitales A–Z"};
+const REG={W:"Monde",AF:"Afrique",AM:"Amériques",AS:"Asie",EU:"Europe",OC:"Océanie"};
+const MODES={q:"Pays → capitale",i:"Capitale → pays",s:"J'écris la capitale"};
+const WHO={ismael:{name:"Ismaël",city:"Hanoï",code:"HAN",img:"ismael.jpg"},sophie:{name:"Sophie",city:"La Réunion",code:"RUN",img:"sophie.jpg"}};
+const N=10;
+/* Liste des jeux. Tant qu'il n'y en a qu'un, aucun menu n'apparaît.
+   Un jeu ajouté ici n'est visible que par Ismaël, jusqu'à ce qu'il le révèle. */
+const GAMES=[{id:"capitales",name:"Duel des capitales",open:()=>go("home")}];
+
+const norm=s=>String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const ALL=[];for(const r in RAW)RAW[r].split(";").forEach(x=>{const[iso,name,cap]=x.split("|");ALL.push({iso,name,cap,r});});
+const SUBOF={};for(const k in SUB)SUB[k].split(" ").forEach(i=>SUBOF[i]=k);ALL.forEach(c=>c.sub=SUBOF[c.iso]);
+const POOL=ALL.filter(c=>norm(c.cap)!==norm(c.name));
+const flag=iso=>String.fromCodePoint(...[...iso].map(c=>127397+c.charCodeAt(0)));
+const rid=()=>(Math.random().toString(36)+"000000").slice(2,8);
+function hash(s){let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619);}return x>>>0;}
+function rng(s){let a=hash(s);return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuf(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function lev(a,b){let p=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){const c=[i];for(let j=1;j<=b.length;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c;}return p[b.length];}
+function okTyped(c,txt){const t=norm(txt);if(!t)return false;return[c.cap,...(ALT[c.iso]||[])].map(norm).some(k=>t===k||(k.length>=5&&lev(t,k)<=(k.length>=9?2:1)));}
+const poolOf=reg=>reg==="W"?POOL:POOL.filter(c=>c.r===reg);
+function makeQs(picks,mode,r){return picks.map(c=>{let opts=null;if(mode!=="s"){const o=shuf(POOL.filter(x=>x.r===c.r&&x!==c),r).slice(0,3);opts=shuf([c,...o],r);}return{c,opts};});}
+function duelQs(seed,mode,reg){const r=rng(seed+"|"+mode+"|"+reg);return makeQs(shuf(poolOf(reg).slice(),r).slice(0,N),mode,r);}
+function makeTest(seed){const r=rng("niveau|"+seed),p=[];for(const reg in RAW)p.push(...shuf(poolOf(reg).slice(),r).slice(0,4));return makeQs(shuf(p,r),"q",r);}
+const levelName=n=>n>=19?"Ambassadeur":n>=16?"Diplomate":n>=12?"Globe-trotter":n>=8?"Voyageur":"Touriste";
+
+/* ---------- état ---------- */
+let S={region:"W",mode:"q",byWho:{ismael:{},sophie:{}},hide:false,sort:"cont"};
+try{const o=JSON.parse(localStorage.getItem("capduel3")||"null");if(o&&o.byWho)S=Object.assign(S,o);}catch(e){}
+function save(){try{localStorage.setItem("capduel3",JSON.stringify(S));}catch(e){}}
+let ME=null,STATS={},DUELS={},LV={},OPEN={},USER=null,V="boot",G=null,R=null,msg="";
+let auth=null,fs=null,unsub=[];
+const otherId=()=>ME==="ismael"?"sophie":"ismael";
+const lvl=c=>Math.min(3,(STATS[c.iso]||{}).s||0);
+const seen=()=>GAMES.filter(g=>g.id==="capitales"||ME==="ismael"||OPEN[g.id]);
+function mergeResult(o){
+  if(!o||!WHO[o.pid]||!/^[a-z0-9]{4,10}$/.test(o.seed||"")||!MODES[o.mode]||!REG[o.region])return;
+  const score=+o.score,correct=+o.correct,secs=+o.secs,at=+o.at||0;
+  if(![score,correct,secs].every(Number.isFinite)||score<0||score>N*150||correct<0||correct>N)return;
+  const d=DUELS[o.seed]||(DUELS[o.seed]={seed:o.seed,mode:o.mode,region:o.region,at:0,res:{}});
+  d.at=Math.max(d.at,at);d.res[o.pid]={score,correct,secs};
+}
+function verdict(d){const m=d.res[ME],o=d.res[otherId()];if(!m)return"todo";if(!o)return"wait";if(m.score!==o.score)return m.score>o.score?"win":"lose";if(m.secs!==o.secs)return m.secs<o.secs?"win":"lose";return"tie";}
+const duelList=()=>Object.values(DUELS).sort((a,b)=>b.at-a.at);
+const todoCount=()=>duelList().filter(d=>verdict(d)==="todo").length;
+
+/* ---------- Firebase : connexion et synchronisation ---------- */
+function stopSync(){unsub.forEach(u=>u());unsub=[];}
+function startSync(){
+  stopSync();
+  unsub.push(fs.collection("results").onSnapshot(s=>{s.forEach(x=>mergeResult(x.data()));if(V==="duels"||V==="home")render();else renderNav();},()=>{}));
+  unsub.push(fs.collection("levels").onSnapshot(s=>{s.forEach(x=>{const o=x.data()||{},n=+o.n,at=+o.at||0;if(!WHO[x.id]||!Number.isFinite(n)||n<0||n>20)return;if(LV[x.id]&&LV[x.id].at>at)return;LV[x.id]={n,of:20,by:o.by||{},at};});if(V==="home")render();},()=>{}));
+  unsub.push(fs.doc("config/games").onSnapshot(x=>{OPEN=(x.exists&&x.data().open)||{};if(V==="hub")render();else renderNav();},()=>{}));
+}
+function pushResult(d){const m=d.res[ME];fs.doc("results/"+d.seed+"_"+ME).set({seed:d.seed,mode:d.mode,region:d.region,pid:ME,score:m.score,correct:m.correct,secs:m.secs,at:d.at}).catch(()=>{});}
+function pushLevel(){const l=LV[ME];if(l)fs.doc("levels/"+ME).set(l).catch(()=>{});}
+async function enter(w){
+  ME=w;STATS=S.byWho[w]||(S.byWho[w]={});
+  try{const x=await fs.doc("levels/"+w).get();if(x.exists){const o=x.data();LV[w]={n:+o.n||0,of:20,by:o.by||{},at:+o.at||0};}}catch(e){}
+  startSync();
+  go(!LV[w]?"test":seen().length>1?"hub":"home");
+}
+async function pick(w){
+  try{
+    const q=await fs.collection("users").where("who","==",w).get();let taken=false;
+    q.forEach(x=>{if(x.id!==USER.uid)taken=true;});
+    if(taken){msg="Ce profil est déjà utilisé par l'autre compte.";render();return;}
+    await fs.doc("users/"+USER.uid).set({who:w});
+    enter(w);
+  }catch(e){go("denied");}
+}
+function signIn(){
+  const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});
+  auth.signInWithPopup(p).catch(e=>{msg="Connexion impossible ("+((e&&e.code)||"erreur")+"). Réessaie.";render();});
+}
+function boot(){
+  if(typeof firebase==="undefined"){msg="Pas de connexion internet. Reviens quand tu as du réseau.";return go("signin");}
+  if(String(firebaseConfig.apiKey).indexOf("COLLE")===0)return go("config");
+  firebase.initializeApp(firebaseConfig);auth=firebase.auth();fs=firebase.firestore();
+  auth.onAuthStateChanged(async u=>{
+    stopSync();ME=null;DUELS={};LV={};
+    if(!u){USER=null;return go("signin");}
+    USER=u;
+    try{const x=await fs.doc("users/"+u.uid).get();if(x.exists&&WHO[x.data().who])enter(x.data().who);else go("login");}
+    catch(e){go("denied");}
+  });
+}
+
+/* ---------- affichage ---------- */
+function h(t,a,...k){const e=document.createElement(t);if(a)for(const x in a){const v=a[x];if(v==null||v===false)continue;if(x==="class")e.className=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(x==="value")e.value=v;else e.setAttribute(x,v===true?"":v);}for(const c of k.flat(3)){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(String(c)));}return e;}
+const av=(w,s)=>h("img",{class:"av",src:WHO[w].img,alt:"",width:s,height:s,style:"width:"+s+"px;height:"+s+"px",onerror:e=>{e.target.style.visibility="hidden";}});
+const app=document.getElementById("app"),nav=document.getElementById("nav");
+function go(v){V=v;if(v!=="signin"&&v!=="login")msg="";render();document.querySelector("main").scrollTop=0;}
+function renderNav(){
+  nav.replaceChildren();
+  const tabs=[["home","Jouer"],["duels","Défis"],["atlas","Atlas"]];
+  if(seen().length>1)tabs.unshift(["hub","Jeux"]);
+  if(!ME||!["hub","home","result","duels","atlas"].includes(V)){nav.hidden=true;return;}
+  nav.hidden=false;const t=todoCount();
+  tabs.forEach(([v,l])=>nav.append(h("button",{type:"button","aria-current":(V===v||(v==="home"&&V==="result"))?"page":null,onclick:()=>go(v)},l,v==="duels"&&t?h("span",{class:"dot"},t):null)));
+}
+const VIEWS={boot:()=>[h("p",{class:"note"},"Chargement…")],config:viewConfig,signin:viewSignin,denied:viewDenied,login:viewLogin,test:viewTest,hub:viewHub,home:viewHome,game:viewGame,result:viewResult,duels:viewDuels,atlas:viewAtlas};
+function render(){renderNav();app.replaceChildren(...VIEWS[V]().flat(3).filter(x=>x!=null&&x!==false));}
+
+function viewConfig(){return[h("div",{class:"board"},h("div",{class:"board-k"},"Installation"),h("div",{class:"board-v"},"Presque prêt")),h("p",{class:"note"},"Il reste à coller le bloc firebaseConfig dans le fichier index.html, à l'endroit indiqué en haut du script.")];}
+function viewSignin(){
+  return[
+    h("div",{class:"board"},h("div",{class:"board-k"},"Embarquement"),h("div",{class:"board-v"},"Hanoï ⇄ La Réunion")),
+    h("p",{class:"note"},"Un jeu rien que pour vous deux. Connecte-toi avec ton compte Google."),
+    msg?h("p",{class:"err"},msg):null,
+    auth?h("button",{type:"button",class:"btn go",onclick:signIn},"Continuer avec Google"):null
+  ];
+}
+function viewDenied(){
+  return[
+    h("div",{class:"board"},h("div",{class:"board-k"},"Accès"),h("div",{class:"board-v"},"Réservé")),
+    h("p",{class:"note"},"Ce compte Google n'est pas autorisé, ou la connexion a échoué. Ce jeu est privé."),
+    h("button",{type:"button",class:"btn",onclick:()=>auth.signOut()},"Changer de compte")
+  ];
+}
+function viewLogin(){
+  return[
+    h("div",{class:"board"},h("div",{class:"board-k"},"Première connexion"),h("div",{class:"board-v"},"Qui es-tu ?")),
+    h("p",{class:"note"},"Choisis ton profil. Ce choix est enregistré une fois pour toutes sur ton compte."),
+    msg?h("p",{class:"err"},msg):null,
+    Object.keys(WHO).map(w=>h("button",{type:"button",class:"btn who",onclick:()=>pick(w)},av(w,64),h("span",null,h("span",{class:"who-n"},WHO[w].name),h("span",{class:"who-c"},WHO[w].code+" · "+WHO[w].city)))),
+    h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:()=>auth.signOut()},"Changer de compte")
+  ];
+}
+function viewTest(){
+  return[
+    h("div",{class:"board"},h("div",{class:"board-k"},"Avant de commencer"),h("div",{class:"board-v"},"Test de niveau")),
+    h("p",{class:"note"},"20 questions, 4 par continent, les mêmes pour vous deux. Tu obtiens ton niveau et tes points forts par continent."),
+    h("button",{type:"button",class:"btn go",onclick:()=>startTest(false)},"Commencer le test"),
+    h("button",{type:"button",class:"btn",onclick:()=>go("home")},"Plus tard")
+  ];
+}
+function viewHub(){
+  return[h("h2",null,"Vos jeux"),seen().map(g=>h("div",{class:"card"},h("b",{style:"font-size:20px"},g.name),
+    h("button",{type:"button",class:"btn go",onclick:()=>g.open()},"Jouer"),
+    ME==="ismael"&&g.id!=="capitales"?h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:()=>fs.doc("config/games").set({open:{[g.id]:!OPEN[g.id]}},{merge:true}).catch(()=>{})},OPEN[g.id]?"Cacher à Sophie":"Révéler à Sophie"):null))];
+}
+
+/* ---------- accueil ---------- */
+function chips(obj,cur,set){return h("div",{class:"chips"},Object.keys(obj).map(k=>h("button",{type:"button",class:"chip","aria-pressed":String(cur===k),onclick:()=>{set(k);save();render();}},obj[k])));}
+function viewHome(){
+  const known=POOL.filter(c=>lvl(c)>=3).length,t=todoCount();
+  return[
+    t?h("button",{type:"button",class:"btn go",onclick:()=>go("duels")},t===1?"1 défi t'attend":t+" défis t'attendent"):null,
+    h("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px"},
+      h("div",{class:"me"},av(ME,52),h("div",null,h("b",null,WHO[ME].name),h("span",{class:"note"},WHO[ME].city))),
+      h("button",{type:"button",class:"btn small",onclick:()=>auth.signOut()},"Se déconnecter")),
+    h("div",{class:"card"},h("h2",{style:"margin:0"},"Niveaux"),
+      h("div",{class:"vs"},[ME,otherId()].map(w=>{const l=LV[w];return[h("span",null,WHO[w].name),h("span",null,l?levelName(l.n)+" · "+l.n+"/"+l.of:"pas encore testé")];})),
+      h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:()=>startTest(!!LV[ME])},LV[ME]?"Refaire le test":"Passer le test de niveau")),
+    h("div",{class:"group"},h("h2",null,"Région"),chips(REG,S.region,k=>S.region=k)),
+    h("div",{class:"group"},h("h2",null,"Jeu"),chips(MODES,S.mode,k=>S.mode=k)),
+    h("div",{class:"row"},
+      h("button",{type:"button",class:"btn go",onclick:startSolo},"S'entraîner"),
+      h("button",{type:"button",class:"btn",onclick:startNewDuel},"Lancer un défi")),
+    h("p",{class:"note"},"Un défi, c'est "+N+" questions identiques pour vous deux. Le plus de points gagne, et répondre vite rapporte un bonus."),
+    h("div",{class:"group"},h("h2",null,"Capitales sues par cœur"),
+      h("div",{class:"meter"},h("i",{style:"width:"+(100*known/POOL.length).toFixed(1)+"%"})),
+      h("p",{class:"note",style:"margin-top:6px"},known+" sur "+POOL.length+". Une capitale est acquise après 3 bonnes réponses d'affilée."))
+  ];
+}
+
+/* ---------- partie ---------- */
+function begin(qs,mode,duel,test){G={qs,mode,duel,test:!!test,log:[],i:0,score:0,correct:0,ms:0,misses:[],locked:false,t0:performance.now()};go("game");}
+function startSolo(){
+  const r=Math.random,a=shuf(poolOf(S.region).slice(),r);a.sort((x,y)=>lvl(x)-lvl(y));
+  begin(makeQs(shuf(a.slice(0,7).concat(shuf(a.slice(7),r).slice(0,N-7)),r),S.mode,r),S.mode,null);
+}
+function startTest(again){begin(makeTest(again?rid():"1"),"q",null,true);}
+function startNewDuel(){const seed=rid();begin(duelQs(seed,S.mode,S.region),S.mode,{seed,mode:S.mode,region:S.region});}
+function playDuel(d){begin(duelQs(d.seed,d.mode,d.region),d.mode,{seed:d.seed,mode:d.mode,region:d.region});}
+function viewGame(){
+  const q=G.qs[G.i],c=q.c,inv=G.mode==="i";
+  const fb=h("div",{class:"fb",role:"status"}),after=h("div");
+  let body;
+  function settle(ok,el){
+    if(G.locked)return;G.locked=true;
+    const dt=performance.now()-G.t0;G.ms+=dt;
+    const st=STATS[c.iso]||(STATS[c.iso]={s:0,n:0});st.n++;st.s=ok?st.s+1:0;
+    G.log.push(ok);if(ok){G.correct++;G.score+=100+Math.max(0,Math.round(50*(1-dt/10000)));}else G.misses.push(c);
+    save();
+    document.getElementById("pts").textContent=G.score;
+    body.querySelectorAll("button,input").forEach(b=>b.disabled=true);
+    if(q.opts)body.querySelectorAll(".opt").forEach((b,k)=>{if(q.opts[k]===c)b.classList.add("right");});
+    if(el&&!ok)el.classList.add("wrong");
+    fb.className="fb "+(ok?"ok":"ko");
+    fb.textContent=ok?"Bonne réponse":(inv?c.cap+" est la capitale de : "+c.name:"La capitale est "+c.cap);
+    const nx=h("button",{type:"button",class:"btn go",onclick:next},G.i+1<G.qs.length?"Suivant":"Voir le résultat");
+    after.append(nx);
+    if(ok)G.auto=setTimeout(next,850);else nx.focus();
+  }
+  if(q.opts)body=h("div",{class:"opts"},q.opts.map(o=>h("button",{type:"button",class:"opt",onclick:e=>settle(o===c,e.currentTarget)},inv?o.name:o.cap)));
+  else body=h("form",{class:"opts",onsubmit:e=>{e.preventDefault();settle(okTyped(c,document.getElementById("ans").value),null);}},
+    h("input",{class:"field",id:"ans",placeholder:"Capitale",autocomplete:"off",autocapitalize:"off",autocorrect:"off",spellcheck:"false","aria-label":"Ta réponse"}),
+    h("button",{type:"submit",class:"btn"},"Valider"));
+  setTimeout(()=>{const i=document.getElementById("ans");if(i)i.focus();},60);
+  return[
+    h("div",{class:"hud"},h("span",null,(G.test?"Test de niveau":G.duel?"Défi":"Entraînement")+" · ",h("b",null,(G.i+1)+"/"+G.qs.length)),h("span",null,h("b",{id:"pts"},G.score)," pts")),
+    h("div",{class:"board flip"},h("div",{class:"board-k"},inv?"Capitale":"Pays"),h("div",{class:"board-v"},inv?c.cap:flag(c.iso)+" "+c.name)),
+    body,fb,after,
+    h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:()=>{clearTimeout(G.auto);go("home");}},"Quitter")
+  ];
+}
+function next(){
+  clearTimeout(G.auto);
+  if(!G.locked)return;
+  if(G.i+1<G.qs.length){G.i++;G.locked=false;G.t0=performance.now();render();return;}
+  R={score:G.score,correct:G.correct,n:G.qs.length,secs:Math.round(G.ms/1000),misses:G.misses,seed:null,level:null};
+  if(G.test){const by={};G.qs.forEach((q,i)=>{by[q.c.r]=(by[q.c.r]||0)+(G.log[i]?1:0);});R.level=LV[ME]={n:G.correct,of:G.qs.length,by,at:Date.now()};pushLevel();}
+  if(G.duel){
+    const d=DUELS[G.duel.seed]||(DUELS[G.duel.seed]={...G.duel,at:0,res:{}});
+    d.at=Date.now();d.res[ME]={score:R.score,correct:R.correct,secs:R.secs};R.seed=d.seed;pushResult(d);
+  }
+  go("result");
+}
+
+/* ---------- résultat ---------- */
+function versus(d){
+  const m=d.res[ME],o=d.res[otherId()];
+  return h("div",{class:"vs"},
+    h("span",null,"Toi"),h("span",null,m?m.score+" pts · "+m.correct+"/"+N+" · "+m.secs+" s":"à jouer"),
+    o?[h("span",null,WHO[otherId()].name),h("span",null,m?o.score+" pts · "+o.correct+"/"+N+" · "+o.secs+" s":"a déjà joué")]:null);
+}
+const VTXT={win:"Tu gagnes ce défi",lose:"Défi perdu",tie:"Égalité parfaite",wait:"En attente de l'autre joueur",todo:"À jouer"};
+function viewResult(){
+  const d=R.seed&&DUELS[R.seed],v=d&&verdict(d),L=R.level;
+  return[
+    h("div",{class:"group"},h("h2",null,L?"Ton niveau":d?"Défi terminé":"Entraînement terminé"),h("div",{class:"big"},L?levelName(L.n):R.score),
+      h("p",{class:"note"},R.correct+" bonnes réponses sur "+R.n+" en "+R.secs+" s")),
+    L?h("div",{class:"card"},h("div",{class:"vs"},Object.keys(RAW).map(r=>[h("span",null,REG[r]),h("span",null,(L.by[r]||0)+"/4")]))):null,
+    d?h("div",{class:"card"},h("span",{class:"pill "+v,style:"align-self:flex-start"},VTXT[v]),versus(d),
+      v==="wait"?h("p",{class:"note"},WHO[otherId()].name+" trouvera ce défi dans son onglet Défis."):null):null,
+    R.misses.length?h("div",{class:"group"},h("h2",null,"À revoir"),R.misses.map(c=>h("div",{class:"miss"},h("span",null,flag(c.iso)+" "+c.name),h("b",null,c.cap)))):h("p",{class:"note"},"Sans faute."),
+    h("div",{class:"row"},h("button",{type:"button",class:"btn go",onclick:startSolo},"Rejouer en entraînement"),h("button",{type:"button",class:"btn",onclick:()=>go(d?"duels":"home")},d?"Voir les défis":"Retour"))
+  ];
+}
+
+/* ---------- défis ---------- */
+function viewDuels(){
+  const list=duelList();let w=0,l=0;list.forEach(d=>{const v=verdict(d);if(v==="win")w++;if(v==="lose")l++;});
+  return[
+    h("div",{class:"tally","aria-label":"Score des défis"},av(ME,48),h("span",null,w+" – "+l),av(otherId(),48)),
+    h("p",{class:"note",style:"text-align:center"},"Les défis et les scores arrivent tout seuls sur vos deux téléphones."),
+    h("div",{class:"group"},h("h2",null,"Vos défis"),
+      list.length?null:h("p",{class:"note"},"Aucun défi pour l'instant. Lance le premier depuis l'onglet Jouer."),
+      h("div",{style:"display:flex;flex-direction:column;gap:12px"},list.map(d=>{const v=verdict(d);return h("div",{class:"card"},
+        h("div",{style:"display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"},h("b",null,REG[d.region]+" · "+MODES[d.mode]),h("span",{class:"pill "+v},VTXT[v])),
+        versus(d),
+        v==="todo"?h("button",{type:"button",class:"btn go",onclick:()=>playDuel(d)},"Relever le défi"):null);})))
+  ];
+}
+
+/* ---------- atlas ---------- */
+function viewAtlas(){
+  const box=h("div",{class:"list"}),m=SORTS[S.sort]?S.sort:"cont",byCap=m==="cap",cmp=(a,b)=>a.localeCompare(b,"fr");
+  function fill(){
+    const el=document.getElementById("find"),f=norm(el?el.value:"");
+    const rows=ALL.filter(c=>!f||norm(byCap?c.cap:c.name).includes(f)||(!S.hide&&norm(byCap?c.name:c.cap).includes(f))).sort((x,y)=>byCap?cmp(x.cap,y.cap):cmp(x.name,y.name));
+    const g=new Map();
+    if(m==="cont")Object.values(REG).slice(1).forEach(k=>g.set(k,[]));
+    if(m==="sub")Object.keys(SUB).forEach(k=>g.set(k,[]));
+    rows.forEach(c=>{const k=m==="cont"?REG[c.r]:m==="sub"?c.sub:norm(byCap?c.cap:c.name)[0].toUpperCase();if(!g.has(k))g.set(k,[]);g.get(k).push(c);});
+    box.replaceChildren();
+    g.forEach((list,k)=>{
+      if(!list.length)return;
+      box.append(h("h2",{style:"margin-top:18px"},k+" · "+list.length));
+      list.forEach(c=>{const l=lvl(c),ans=byCap?c.name:c.cap,right=h("span",{class:"cap"},S.hide?"Afficher":ans);
+        box.append(h("button",{type:"button",class:"cty",onclick:()=>{right.textContent=ans;}},h("span",null,flag(c.iso)),h("span",null,byCap?c.cap:c.name),right,h("span",{class:"lv "+(l>=3?"l3":l>0?"l1":"")})));});
+    });
+    if(!box.children.length)box.append(h("p",{class:"note"},"Aucun résultat."));
+  }
+  const out=[
+    h("div",{class:"group"},h("h2",null,"Ranger par"),h("div",{class:"chips"},Object.keys(SORTS).map(k=>h("button",{type:"button",class:"chip","aria-pressed":String(m===k),onclick:()=>{S.sort=k;save();render();}},SORTS[k])))),
+    h("div",{class:"row"},
+      h("input",{class:"field",id:"find",type:"search",placeholder:byCap?"Chercher une capitale":"Chercher un pays",autocomplete:"off",style:"flex:1 1 200px",oninput:fill,"aria-label":"Chercher"}),
+      h("button",{type:"button",class:"chip","aria-pressed":String(S.hide),onclick:()=>{S.hide=!S.hide;save();render();}},"Cacher les réponses")),
+    h("p",{class:"note"},S.hide?"Devine, puis touche une ligne pour vérifier.":"Point vert : acquise. Point jaune : en cours."),
+    box];
+  fill();return out;
+}
+
+boot();
+</script>
+</body>
+</html>
