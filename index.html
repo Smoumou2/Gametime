@@ -146,7 +146,7 @@ let S={region:"W",mode:"q",byWho:{ismael:{},sophie:{}},hide:false,sort:"cont"};
 try{const o=JSON.parse(localStorage.getItem("capduel3")||"null");if(o&&o.byWho)S=Object.assign(S,o);}catch(e){}
 function save(){try{localStorage.setItem("capduel3",JSON.stringify(S));}catch(e){}}
 let ME=null,STATS={},DUELS={},LV={},OPEN={},USER=null,V="boot",G=null,R=null,msg="";
-let auth=null,fs=null,unsub=[];
+let auth=null,fs=null,unsub=[],KEEP="";
 const otherId=()=>ME==="ismael"?"sophie":"ismael";
 const lvl=c=>Math.min(3,(STATS[c.iso]||{}).s||0);
 const seen=()=>GAMES.filter(g=>g.id==="capitales"||ME==="ismael"||OPEN[g.id]);
@@ -178,17 +178,31 @@ async function enter(w){
   go(!LV[w]?"test":seen().length>1?"hub":"home");
 }
 async function pick(w){
+  const code=(document.getElementById("code").value||"").trim();
+  if(!code){msg="Écris le code secret.";render();return;}
   try{
-    const q=await fs.collection("users").where("who","==",w).get();let taken=false;
-    q.forEach(x=>{if(x.id!==USER.uid)taken=true;});
-    if(taken){msg="Ce profil est déjà utilisé par l'autre compte.";render();return;}
-    await fs.doc("users/"+USER.uid).set({who:w});
+    const b=fs.batch();
+    b.set(fs.doc("profiles/"+w),{uid:USER.uid,code});
+    b.set(fs.doc("users/"+USER.uid),{who:w,code});
+    await b.commit();
     enter(w);
-  }catch(e){go("denied");}
+  }catch(e){msg="Code incorrect, ou profil déjà pris par l'autre compte.";render();}
 }
+const AUTHERR={"auth/invalid-credential":"E-mail ou mot de passe incorrect.","auth/wrong-password":"Mot de passe incorrect.","auth/user-not-found":"Aucun compte avec cet e-mail. Clique sur « Créer mon compte ».","auth/email-already-in-use":"Un compte existe déjà avec cet e-mail. Clique sur « Se connecter ».","auth/weak-password":"Mot de passe trop court : 6 caractères minimum.","auth/invalid-email":"Cette adresse e-mail n'est pas valide.","auth/missing-password":"Écris un mot de passe.","auth/popup-closed-by-user":"Fenêtre Google fermée. Réessaie.","auth/network-request-failed":"Pas de connexion internet."};
+function fail(e){const c=(e&&e.code)||"erreur";msg=AUTHERR[c]||"Connexion impossible ("+c+"). Réessaie.";render();}
 function signIn(){
   const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});
-  auth.signInWithPopup(p).catch(e=>{msg="Connexion impossible ("+((e&&e.code)||"erreur")+"). Réessaie.";render();});
+  auth.signInWithPopup(p).catch(fail);
+}
+function mailAuth(create){
+  const m=document.getElementById("mail").value.trim(),pw=document.getElementById("pw").value;
+  KEEP=m;
+  (create?auth.createUserWithEmailAndPassword(m,pw):auth.signInWithEmailAndPassword(m,pw)).catch(fail);
+}
+function forgot(){
+  const m=document.getElementById("mail").value.trim();KEEP=m;
+  if(!m){msg="Écris d'abord ton e-mail, puis reclique sur « Mot de passe oublié ».";render();return;}
+  auth.sendPasswordResetEmail(m).then(()=>{msg="E-mail de réinitialisation envoyé à "+m+".";render();}).catch(fail);
 }
 function boot(){
   if(typeof firebase==="undefined"){msg="Pas de connexion internet. Reviens quand tu as du réseau.";return go("signin");}
@@ -223,22 +237,31 @@ function viewConfig(){return[h("div",{class:"board"},h("div",{class:"board-k"},"
 function viewSignin(){
   return[
     h("div",{class:"board"},h("div",{class:"board-k"},"Embarquement"),h("div",{class:"board-v"},"Hanoï ⇄ La Réunion")),
-    h("p",{class:"note"},"Un jeu rien que pour vous deux. Connecte-toi avec ton compte Google."),
+    h("p",{class:"note"},"Un jeu rien que pour vous deux. Connecte-toi avec Google ou avec un e-mail."),
     msg?h("p",{class:"err"},msg):null,
-    auth?h("button",{type:"button",class:"btn go",onclick:signIn},"Continuer avec Google"):null
+    auth?[
+      h("button",{type:"button",class:"btn go",onclick:signIn},"Continuer avec Google"),
+      h("h2",{style:"margin:8px 0 0"},"Ou avec un e-mail"),
+      h("form",{class:"opts",onsubmit:e=>{e.preventDefault();mailAuth(false);}},
+        h("input",{class:"field",id:"mail",type:"email",placeholder:"E-mail",autocomplete:"email",autocapitalize:"off",value:KEEP,"aria-label":"E-mail"}),
+        h("input",{class:"field",id:"pw",type:"password",placeholder:"Mot de passe (6 caractères minimum)",autocomplete:"current-password","aria-label":"Mot de passe"}),
+        h("div",{class:"row"},h("button",{type:"submit",class:"btn"},"Se connecter"),h("button",{type:"button",class:"btn",onclick:()=>mailAuth(true)},"Créer mon compte"))),
+      h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:forgot},"Mot de passe oublié")
+    ]:null
   ];
 }
 function viewDenied(){
   return[
     h("div",{class:"board"},h("div",{class:"board-k"},"Accès"),h("div",{class:"board-v"},"Réservé")),
-    h("p",{class:"note"},"Ce compte Google n'est pas autorisé, ou la connexion a échoué. Ce jeu est privé."),
+    h("p",{class:"note"},"La connexion à la base de données a échoué. Vérifie ta connexion internet, puis réessaie."),
     h("button",{type:"button",class:"btn",onclick:()=>auth.signOut()},"Changer de compte")
   ];
 }
 function viewLogin(){
   return[
     h("div",{class:"board"},h("div",{class:"board-k"},"Première connexion"),h("div",{class:"board-v"},"Qui es-tu ?")),
-    h("p",{class:"note"},"Choisis ton profil. Ce choix est enregistré une fois pour toutes sur ton compte."),
+    h("p",{class:"note"},"Écris le code secret, puis choisis ton profil. Ce choix est enregistré une fois pour toutes sur ton compte."),
+    h("input",{class:"field",id:"code",placeholder:"Code secret",autocomplete:"off",autocapitalize:"off","aria-label":"Code secret",value:(document.getElementById("code")||{}).value||""}),
     msg?h("p",{class:"err"},msg):null,
     Object.keys(WHO).map(w=>h("button",{type:"button",class:"btn who",onclick:()=>pick(w)},av(w,64),h("span",null,h("span",{class:"who-n"},WHO[w].name),h("span",{class:"who-c"},WHO[w].code+" · "+WHO[w].city)))),
     h("button",{type:"button",class:"btn small",style:"align-self:flex-start",onclick:()=>auth.signOut()},"Changer de compte")
